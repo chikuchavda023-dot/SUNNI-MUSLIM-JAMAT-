@@ -158,7 +158,7 @@ body:has(#login.active)>header{display:none;}
         </div>
       </div>
       <button class="final-login-button" onclick="doLogin()">⇥&nbsp; Login</button>
-      <p id="loginError" class="small final-login-error"></p>
+      <button type="button" class="final-admin-link" onclick="resetAdminPassword()">Password ભૂલી ગયા? Email પર Reset Link મોકલો</button><p id="loginError" class="small final-login-error"></p>
       <button type="button" class="final-admin-link" onclick="showAdminLogin()">Admin Login</button>
     </div>
   </div>
@@ -168,16 +168,17 @@ body:has(#login.active)>header{display:none;}
   <button class="back" onclick="logout()">↩ Logout</button>
   <div class="card"><h2>👤 Member Portal</h2><div id="portalMemberInfo"></div></div>
   <div class="card">
-    <h3>📊 બધા હિસાબના Report</h3>
-    <input id="memberReportMonth" type="number" min="2000" max="2100" placeholder="વર્ષ (YYYY)" onchange="renderMemberPortalReports()">
-    <p class="small">આ મહિના માટે જમાત, મદ્રેસા, કબ્રસ્તાન, દરગાહ અને માસિક ઘર ફાળાનો હિસાબ.</p>
+    <h3>💰 1. મારી આપેલી રકમ</h3>
+    <div id="memberMyAmountMenu"></div>
   </div>
+  <div class="card">
+    <h3>📋 2. સંપૂર્ણ હિસ્ટ્રી</h3>
+    <div id="memberFullHistoryMenu"></div>
+  </div>
+  <input id="memberReportMonth" type="hidden">
   <div id="memberFinanceReports"></div>
   <div id="memberHouseReport"></div>
-  <div class="card">
-    <h3>🧾 મારી Payment History</h3>
-    <div id="portalMemberPayments"></div>
-  </div>
+  <div class="card" style="display:none"><div id="portalMemberPayments"></div></div>
 </section>
 
 <section id="memberFinanceDetail" class="screen">
@@ -656,12 +657,6 @@ body:has(#login.active)>header{display:none;}
   </div>
 </section>
 <script>
-function escapeHtml(value){
-  return String(value == null ? "" : value).replace(/[&<>\"']/g, function(c){
-    return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","\'":"&#39;"}[c];
-  });
-}
-
 const sections={
  Jamat:{name:"જમાતની આવક-જાવક",icon:"🕌"},
  Madrasa:{name:"મદરેસાની આવક-જાવક",icon:"📚"},
@@ -1315,8 +1310,7 @@ async function addMember(){
    alert("સભ્ય સફળતાથી ઉમેરાયો. હવે Member Mobile + Passwordથી Login કરી શકશે.");
  }catch(e){
    console.error(e);
-   const ec=String(e.code||e.message||"").toUpperCase();
-   alert(ec.includes("INVALID_LOGIN_CREDENTIALS")||ec.includes("INVALID_PASSWORD")||ec.includes("EMAIL_NOT_FOUND")?"Firebase Account પહેલેથી છે, પરંતુ આપેલો Password ખોટો છે.":"Member Account બનાવવામાં સમસ્યા આવી. ફરી પ્રયાસ કરો.");
+   alert(e.code==="auth/email-already-in-use"?"આ મોબાઇલ માટે Firebase Account પહેલેથી બનાવેલું છે.":"Member Account બનાવવામાં સમસ્યા આવી. ફરી પ્રયાસ કરો.");
  }
 }
 function renderMembers(){
@@ -1752,7 +1746,7 @@ const ADMIN_MOBILE = "9723390940";
 const ADMIN_EMAIL = "chavdachirag2323@gmail.com";
 const MEMBER_EMAIL_DOMAIN = "sunnimuslimjamat.firebaseapp.com";
 const FIREBASE_CONFIG = {
-  apiKey: "AIzaSyCCsIXcOrnrswzaTHeK8ISlhmYxryYtqd4",
+  apiKey: "AIzaSyCC6NSxIOrnrswzaTHeK8ISlhmYxrytYqd4",
   authDomain: "sunni-muslim-jamat.firebaseapp.com",
   databaseURL: "https://sunni-muslim-jamat-default-rtdb.firebaseio.com",
   projectId: "sunni-muslim-jamat",
@@ -1784,143 +1778,80 @@ function showMemberLogin(){
  card.innerHTML='<div class="login-card-title"><span class="member-icon"></span><span>Member Login</span></div><div class="card-divider"></div><div class="login-field"><div class="login-field-icon">▣</div><input id="loginMobile" type="tel" inputmode="numeric" maxlength="10" placeholder="Mobile Number" autocomplete="tel"></div><div class="login-field"><div class="login-field-icon">🔒</div><div class="password-wrap"><input id="loginPassword" type="password" placeholder="Password" autocomplete="current-password"><button type="button" class="eye-toggle" onclick="toggleLoginPassword()">◉</button></div></div><button class="final-login-button" onclick="doLogin()">⇥&nbsp; Login</button><p id="loginError" class="small final-login-error"></p><button type="button" class="final-admin-link" onclick="showAdminLogin()">Admin Login</button>';
  setTimeout(()=>$('loginMobile')?.focus(),50);
 }
+async function resetAdminPassword(){
+ const err=$("loginError");
+ try{
+  if(!firebaseReady||!firebaseAuth){if(err)err.textContent="Firebase connect થયું નથી.";return;}
+  await firebaseAuth.sendPasswordResetEmail(ADMIN_EMAIL);
+  if(err)err.textContent="Password reset link email પર મોકલ્યો છે.";
+  alert("Password reset link chavdachirag2323@gmail.com પર મોકલ્યો છે.");
+ }catch(e){
+  console.error(e);
+  if(err)err.textContent="Reset email મોકલાયું નથી: "+(e.code||e.message);
+ }
+}
 async function doAdminLogin(){
  const err=$('loginError');
  const mobile=$('loginMobile')?.value.replace(/\D/g,'')||'';
  const pass=$('loginPassword')?.value||'';
  if(err) err.textContent='';
+ if(!firebaseReady || !firebaseAuth){ if(err) err.textContent='Firebase connect થયું નથી.'; return; }
  if(mobile!==ADMIN_MOBILE){ if(err) err.textContent='Admin mobile number ખોટો છે.'; return; }
  if(!pass){ if(err) err.textContent='Admin Password નાખો.'; return; }
  try{
-   if(err) err.textContent='Admin Login ચેક થઈ રહ્યું છે...';
-   // Use the same Firebase REST authentication that works for Member Login.
-   const ar=await fetch('https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key='+encodeURIComponent(FIREBASE_CONFIG.apiKey),{
-     method:'POST',headers:{'Content-Type':'application/json'},
-     body:JSON.stringify({email:ADMIN_EMAIL,password:pass,returnSecureToken:true})
-   });
-   const aj=await ar.json().catch(()=>({}));
-   if(!ar.ok){
-     const code=String(aj.error?.message||'').toUpperCase();
-     if(code.includes('INVALID_LOGIN_CREDENTIALS')||code.includes('INVALID_PASSWORD')||code.includes('EMAIL_NOT_FOUND')) throw new Error('BAD_ADMIN_CREDENTIALS');
-     if(code.includes('USER_DISABLED')) throw new Error('ADMIN_DISABLED');
-     if(code.includes('TOO_MANY_ATTEMPTS')) throw new Error('ADMIN_TOO_MANY');
-     throw new Error('AUTH_'+(aj.error?.message||ar.status));
-   }
-   if(aj.localId!==FIREBASE_ADMIN_UID) throw new Error('NOT_ADMIN');
-   window.__adminIdToken=aj.idToken;
+   if(err) err.textContent='Login ચેક થઈ રહ્યું છે...';
+   const c=await firebaseAuth.signInWithEmailAndPassword(ADMIN_EMAIL,pass);
+   if(c.user.uid!==FIREBASE_ADMIN_UID){ await firebaseAuth.signOut(); throw new Error('NOT_ADMIN'); }
    loggedRole='admin'; loggedMemberId=null;
-   await cloudAdminLoad();
-   await cloudAdminSync();
-   show('home');
+   await cloudAdminLoad(); await cloudAdminSync(); show('home');
  }catch(e){
    console.error('Admin login error:',e);
    let msg='Admin login થયું નથી.';
-   if(e.message==='BAD_ADMIN_CREDENTIALS') msg='Admin Email અથવા Password ખોટો છે.';
-   else if(e.message==='ADMIN_DISABLED') msg='Admin Firebase account disabled છે.';
-   else if(e.message==='ADMIN_TOO_MANY') msg='ઘણા login પ્રયાસ થયા છે. થોડા સમય પછી ફરી પ્રયાસ કરો.';
-   else if(e.message==='NOT_ADMIN') msg='આ Firebase Account Admin નથી.';
-   else msg='Login error: '+(e.message||e);
+   if(e.message==='NOT_ADMIN') msg='આ Firebase Account Admin નથી.';
+   else if(e.code==='auth/invalid-credential' || e.code==='auth/wrong-password' || e.code==='auth/user-not-found') msg='Firebase Email અથવા Password ખોટો છે.';
+   else if(e.code==='auth/too-many-requests') msg='ઘણા પ્રયાસ થયા છે. થોડા સમય પછી ફરી પ્રયાસ કરો.';
+   else if(e.code==='auth/operation-not-allowed') msg='Firebaseમાં Email/Password Login ચાલુ નથી.';
+   else if(e.code) msg='Firebase error: '+e.code;
    if(err) err.textContent=msg;
    alert(msg);
  }
 }
 async function doLogin(){
- const err=$('loginError');
- if(err) err.textContent="";
- const mobile=String($('loginMobile')?.value||'').replace(/\D/g,'');
- const pass=String($('loginPassword')?.value||'');
- if(mobile.length!==10){if(err) err.textContent="સભ્યનો સાચો 10 અંકનો મોબાઇલ નંબર નાખો.";return;}
- if(!pass){if(err) err.textContent="Member Password નાખો.";return;}
+ if(!firebaseReady){$('loginError').textContent="Firebase connect થયું નથી.";return;}
+ const mobile=$('loginMobile')?.value.replace(/\D/g,"")||"",pass=$('loginPassword')?.value||"";
+ if(mobile.length!==10){$('loginError').textContent="સભ્યનો સાચો 10 અંકનો મોબાઇલ નંબર નાખો.";return;}
+ if(!pass){$('loginError').textContent="Member Password નાખો.";return;}
  const email=memberEmailFromMobile(mobile);
- const API_KEY=FIREBASE_CONFIG.apiKey;
- const DB_URL=FIREBASE_CONFIG.databaseURL;
- try{
-   if(err) err.textContent="Member Login ચેક થઈ રહ્યું છે...";
-   // Use Firebase REST Auth here. This avoids the browser Firebase-SDK login hang.
-   const ar=await fetch('https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key='+encodeURIComponent(API_KEY),{
-     method:'POST',headers:{'Content-Type':'application/json'},
-     body:JSON.stringify({email,password:pass,returnSecureToken:true})
-   });
-   const aj=await ar.json().catch(()=>({}));
-   if(!ar.ok){
-     const code=String(aj.error?.message||'').toUpperCase();
-     if(code.includes('INVALID_LOGIN_CREDENTIALS')||code.includes('INVALID_PASSWORD')||code.includes('EMAIL_NOT_FOUND')) throw new Error('BAD_CREDENTIALS');
-     if(code.includes('USER_DISABLED')) throw new Error('USER_DISABLED');
-     throw new Error('AUTH_'+(aj.error?.message||ar.status));
-   }
-   const uid=aj.localId, idToken=aj.idToken;
-   if(uid===FIREBASE_ADMIN_UID) throw new Error('USE_ADMIN');
-   window.__memberIdToken=idToken;
-
-   // Read only this member's private record. Database rules allow the member's own UID.
-   const rr=await fetch(DB_URL+'/members/'+encodeURIComponent(uid)+'.json?auth='+encodeURIComponent(idToken));
-   const priv=await rr.json().catch(()=>null);
-   if(!rr.ok) throw new Error('DB_'+rr.status);
-   if(!priv || !priv.profile) throw new Error('MEMBER_NOT_LINKED');
-
-   let ms=getMembers();
-   let m=ms.find(x=>x.firebaseUid===uid || String(x.mobile||'').replace(/\D/g,'')===mobile);
-   if(!m){
-     m={id:Date.now(),name:priv.profile.name||'Member',mobile:priv.profile.mobile||mobile,firebaseUid:uid,firebaseEmail:email};
-     ms.push(m); saveMembers(ms);
-   }else{
-     m.firebaseUid=uid; m.firebaseEmail=email;
-     m.name=priv.profile.name||m.name; m.mobile=priv.profile.mobile||m.mobile;
-     m.payments=priv.payments||[]; saveMembers(ms);
-   }
-
-   // Load this member's own finance data and the aggregate public report.
-   const d=getData(); d.Finance=d.Finance||{};
-   Object.keys(priv.finance||{}).forEach(cat=>{d.Finance[cat]=priv.finance[cat]||[];});
-   localStorage.setItem('jamat_hisab_data',JSON.stringify(d));
-   window.__publicReport={};
-   const pr=await fetch(DB_URL+'/publicReport.json?auth='+encodeURIComponent(idToken));
-   if(pr.ok) window.__publicReport=(await pr.json())||{};
-
-   loggedRole='member'; loggedMemberId=m.id;
-   renderMemberPortal(m); show('memberPortal'); renderMemberPortalReports();
-   attachMemberListeners(uid);
-   if(err) err.textContent='';
- }catch(e){
-   console.error('Member login error:',e);
-   let msg='Member Login થયું નથી.';
-   if(e.message==='BAD_CREDENTIALS') msg='Mobile નંબર અથવા Password ખોટો છે.';
-   else if(e.message==='USER_DISABLED') msg='આ Member account બંધ (disabled) છે.';
-   else if(e.message==='USE_ADMIN') msg='Admin Login માટે Admin Login button વાપરો.';
-   else if(e.message==='MEMBER_NOT_LINKED') msg='Firebase Member account છે, પરંતુ આ appના Member record સાથે જોડાયેલ નથી.';
-   else if(String(e.message).startsWith('DB_')) msg='Memberનો Firebase data વાંચી શકાયો નથી. Firebase Rules તપાસો.';
-   else msg='Login error: '+(e.message||e);
-   if(err) err.textContent=msg;
- }
+ try{const c=await firebaseAuth.signInWithEmailAndPassword(email,pass);if(c.user.uid===FIREBASE_ADMIN_UID){await firebaseAuth.signOut();throw new Error("USE_ADMIN");}
+   const snap=await firebaseDb.ref("members/"+c.user.uid).once("value");
+   const md=snap.val();
+   const m=getMembers().find(x=>x.firebaseUid===c.user.uid || (x.mobile||"").replace(/\D/g,"")===mobile);
+   if(!m && !md){await firebaseAuth.signOut();throw new Error("MEMBER_NOT_LINKED");}
+   loggedRole="member";loggedMemberId=m?m.id:null;
+   await cloudMemberLoad(c.user.uid,m);
+   const mm=getMembers().find(x=>x.firebaseUid===c.user.uid || (x.mobile||"").replace(/\D/g,"")===mobile)||m;
+   if(!mm){await firebaseAuth.signOut();throw new Error("MEMBER_NOT_LINKED");}
+   loggedMemberId=mm.id;renderMemberPortal(mm);show("memberPortal");renderMemberPortalReports();
+   attachMemberListeners(c.user.uid);
+ }catch(e){let msg="Member Mobile અથવા Password ખોટો છે.";if(e.message==="USE_ADMIN")msg="Admin Login માટે Admin Login button વાપરો.";if(e.message==="MEMBER_NOT_LINKED")msg="આ Mobile કોઈ Member Account સાથે જોડાયેલ નથી.";$('loginError').textContent=msg;}
 }
 async function createFirebaseMemberAccount(mobile,password){
+ const name="memberCreator";
+ let app;
+ try{app=firebase.app(name);}catch(e){app=firebase.initializeApp(FIREBASE_CONFIG,name);}
+ const a=app.auth();
  const email=memberEmailFromMobile(mobile);
- const ar=await fetch("https://identitytoolkit.googleapis.com/v1/accounts:signUp?key="+encodeURIComponent(FIREBASE_CONFIG.apiKey),{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email,password,returnSecureToken:true})});
- const aj=await ar.json().catch(()=>({}));
- if(ar.ok) return {uid:aj.localId,email};
- const code=String(aj.error?.message||"").toUpperCase();
- if(code.includes("EMAIL_EXISTS")){
-   // Account already exists: verify the supplied Member password and link the existing UID.
-   const lr=await fetch("https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key="+encodeURIComponent(FIREBASE_CONFIG.apiKey),{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email,password,returnSecureToken:true})});
-   const lj=await lr.json().catch(()=>({}));
-   if(!lr.ok){const le=new Error(String(lj.error?.message||"EXISTING_ACCOUNT_LOGIN_FAILED").toUpperCase());le.code=le.message;throw le;}
-   return {uid:lj.localId,email};
- }
- const e=new Error(code);e.code=code;throw e;
+ const cred=await a.createUserWithEmailAndPassword(email,password);
+ await a.signOut();
+ return {uid:cred.user.uid,email};
 }
 
-async function firebaseSet(path,value){
- const token=window.__adminIdToken;
- if(!firebaseReady||!token)throw new Error("ADMIN_TOKEN_MISSING");
- const r=await fetch(FIREBASE_CONFIG.databaseURL.replace(/\/$/,"")+"/"+path.replace(/^\//,"")+".json?auth="+encodeURIComponent(token),{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify(value)});
- if(!r.ok)throw new Error("DB_HTTP_"+r.status+" "+await r.text());
- return r.json().catch(()=>null);
-}
+async function firebaseSet(path,value){if(!firebaseReady||!firebaseAuth?.currentUser)return;await firebaseDb.ref(path).set(value);}
 function yearFromDate(d){const m=String(d||"").match(/(\d{4})/);return m?m[1]:String(new Date().getFullYear());}
 function buildPublicReport(){
  const d=getData(), out={updatedAt:Date.now(),years:{}};
  const cats=["Jamat","Madrasa","Kabrastan","Dargah","JamatBhada"];
- cats.forEach(cat=>{(d.Finance&&d.Finance[cat]||[]).forEach(e=>{const y=yearFromDate(e.date);out.years[y]=out.years[y]||{};out.years[y][cat]=out.years[y][cat]||{income:0,expense:0,count:0};const a=Number(e.amount||0);if(e.type==="income")out.years[y][cat].income+=a;else if(e.type==="expense")out.years[y][cat].expense+=a;out.years[y][cat].count++;});});
+ cats.forEach(cat=>{(d.Finance&&d.Finance[cat]||[]).forEach(e=>{const y=yearFromDate(e.date);out.years[y]=out.years[y]||{};out.years[y][cat]=out.years[y][cat]||{income:0,expense:0,count:0,entries:[]};const a=Number(e.amount||0);if(e.type==="income")out.years[y][cat].income+=a;else if(e.type==="expense")out.years[y][cat].expense+=a;out.years[y][cat].count++;out.years[y][cat].entries.push({date:e.date||"",type:e.type||"",donor:e.donor||"",detail:e.detail||"",purpose:e.purpose||"",amount:a});});});
  return out;
 }
 function buildMemberPrivate(uid){
@@ -1930,22 +1861,19 @@ function buildMemberPrivate(uid){
  return out;
 }
 async function cloudAdminSync(){
- if(!firebaseReady||cloudApplying||loggedRole!=="admin"||!window.__adminIdToken)return;
+ if(!firebaseReady||cloudApplying||loggedRole!=="admin"||firebaseAuth.currentUser?.uid!==FIREBASE_ADMIN_UID)return;
  try{
   const state={data:getData(),members:getMembers(),houses:getHouses(),updatedAt:Date.now()};
-  await firebaseSet("admin/state",state);
-  await firebaseSet("publicReport",buildPublicReport());
+  await firebaseDb.ref("admin/state").set(state);
+  await firebaseDb.ref("publicReport").set(buildPublicReport());
   const ms=getMembers();
-  const tasks=ms.filter(m=>m.firebaseUid).map(m=>firebaseSet("members/"+m.firebaseUid,buildMemberPrivate(m.firebaseUid)));
+  const tasks=ms.filter(m=>m.firebaseUid).map(m=>firebaseDb.ref("members/"+m.firebaseUid).set(buildMemberPrivate(m.firebaseUid)));
   await Promise.all(tasks);
  }catch(e){console.warn("Cloud sync failed",e);}
 }
 let cloudSyncTimer=null;function cloudScheduleSync(){if(cloudApplying||loggedRole!=="admin")return;clearTimeout(cloudSyncTimer);cloudSyncTimer=setTimeout(cloudAdminSync,500);}
 async function cloudAdminLoad(){
- if(!firebaseReady||!window.__adminIdToken)return;
- const r=await fetch(FIREBASE_CONFIG.databaseURL.replace(/\/$/,"")+"/admin/state.json?auth="+encodeURIComponent(window.__adminIdToken));
- if(!r.ok)throw new Error("DB_HTTP_"+r.status+" "+await r.text());
- const v=await r.json();if(!v)return;
+ if(!firebaseReady)return;const snap=await firebaseDb.ref("admin/state").once("value");const v=snap.val();if(!v)return;
  cloudApplying=true;try{if(v.data)localStorage.setItem("jamat_hisab_data",JSON.stringify(v.data));if(v.members)localStorage.setItem("jamat_hisab_members",JSON.stringify(v.members));if(v.houses)localStorage.setItem("jamat_hisab_houses",JSON.stringify(v.houses));}finally{cloudApplying=false;}
 }
 async function cloudMemberLoad(uid,m){
@@ -1956,50 +1884,10 @@ async function cloudMemberLoad(uid,m){
  }
  window.__publicReport=ps.val()||{};
 }
-window.__memberStreams=[];
-function closeMemberListeners(){
- try{(window.__memberStreams||[]).forEach(x=>{try{x.close();}catch(e){}});}catch(e){}
- window.__memberStreams=[];
-}
-async function refreshMemberLiveData(uid){
- if(loggedRole!=="member"||!window.__memberIdToken)return;
- const token=window.__memberIdToken;
- try{
-   const [prr,mr]=await Promise.all([
-     fetch(DB_URL+'/publicReport.json?auth='+encodeURIComponent(token)),
-     fetch(DB_URL+'/members/'+encodeURIComponent(uid)+'.json?auth='+encodeURIComponent(token))
-   ]);
-   if(prr.ok) window.__publicReport=(await prr.json())||{};
-   if(mr.ok){
-     const priv=(await mr.json())||{};
-     const ms=getMembers();
-     const m=ms.find(x=>x.firebaseUid===uid);
-     if(m){
-       m.name=priv.profile?.name||m.name; m.mobile=priv.profile?.mobile||m.mobile;
-       m.payments=priv.payments||[]; saveMembers(ms);
-       const d=getData(); d.Finance=d.Finance||{};
-       Object.keys(priv.finance||{}).forEach(cat=>{d.Finance[cat]=priv.finance[cat]||[];});
-       cloudApplying=true; try{localStorage.setItem('jamat_hisab_data',JSON.stringify(d));}finally{cloudApplying=false;}
-       renderMemberPortal(m); renderMemberPortalReports();
-     }
-   }
- }catch(e){console.warn('Member live refresh failed',e);}
-}
 function attachMemberListeners(uid){
- closeMemberListeners();
- if(!window.__memberIdToken)return;
- const token=window.__memberIdToken;
- const base=DB_URL.replace(/\/$/,'');
- const openStream=(path)=>{
-   const es=new EventSource(base+'/'+path+'.json?auth='+encodeURIComponent(token));
-   es.addEventListener('put',()=>refreshMemberLiveData(uid));
-   es.addEventListener('patch',()=>refreshMemberLiveData(uid));
-   es.onerror=()=>{};
-   window.__memberStreams.push(es);
- };
- // REST/SSE listeners work even though Member Login uses REST Auth (not the Firebase JS SDK).
- openStream('publicReport');
- openStream('members/'+encodeURIComponent(uid));
+ if(!firebaseReady)return;
+ firebaseDb.ref("publicReport").on("value",s=>{window.__publicReport=s.val()||{};if(loggedRole==="member")renderMemberPortalReports();});
+ firebaseDb.ref("members/"+uid).on("value",s=>{if(loggedRole!=="member")return;const priv=s.val();if(!priv)return;const m=getMembers().find(x=>x.firebaseUid===uid);if(m){m.name=priv.profile?.name||m.name;m.mobile=priv.profile?.mobile||m.mobile;m.payments=priv.payments||[];saveMembers(getMembers());}renderMemberPortal(m);renderMemberPortalReports();});
 }
 
 function getMemberFinanceEntries(m,category){
@@ -2041,36 +1929,41 @@ function openMemberAllFinanceDetail(){
  const t=$("memberFinanceDetailTitle"),b=$("memberFinanceDetailBody");if(t&&b){t.textContent=year+' — સમગ્ર Report';b.innerHTML=html;if(typeof show==='function')show('memberFinanceDetail');}
 }
 
+function memberCategoryIcon(cat){return cat==='Jamat'?'🕌':cat==='Madrasa'?'🏫':cat==='Kabrastan'?'🪦':cat==='Dargah'?'🕌':'🍽️';}
+function memberCategoryButton(cat,mode){
+ const label=(financeLabels[cat]||cat), icon=memberCategoryIcon(cat);
+ return '<button class="member-cat-btn" type="button" onclick="openMemberCategoryReport(\''+cat+'\',\''+mode+'\')">'+icon+' '+escapeHtml(label)+'</button>';
+}
+function openMemberCategoryReport(cat,mode){
+ if(loggedRole!=="member")return;
+ const m=getMembers().find(x=>Number(x.id)===Number(loggedMemberId)); if(!m)return;
+ const year=($('memberReportMonth')?.value||'').trim()||String(new Date().getFullYear());
+ const title=memberCategoryIcon(cat)+' '+(financeLabels[cat]||cat)+' — '+(mode==='mine'?'મારી આપેલી રકમ':'સંપૂર્ણ હિસ્ટ્રી');
+ let rows=[],income=0,expense=0;
+ if(mode==='mine'){
+   rows=getMemberFinanceEntries(m,cat).filter(e=>String(e.date||'').startsWith(year));
+ }else{
+   const x=(window.__publicReport?.years?.[year]?.[cat])||{}; rows=x.entries||[];
+ }
+ rows.forEach(e=>{const a=Number(e.amount||0); if(e.type==='income')income+=a; else if(e.type==='expense')expense+=a;});
+ let html='<div class="card"><h2>'+escapeHtml(title)+'</h2><div class="small">વર્ષ: '+escapeHtml(year)+'</div><div class="grid"><div class="stat"><div class="label">આવક</div><div class="value income">'+money(income)+'</div></div><div class="stat"><div class="label">જાવક</div><div class="value expense">'+money(expense)+'</div></div><div class="stat"><div class="label">બાકી</div><div class="value balance">'+money(income-expense)+'</div></div></div></div>';
+ html+='<div class="card"><h3>📊 આવક જાવક રિપોર્ટ</h3>';
+ if(!rows.length){html+='<p class="small">આ વર્ષ માટે કોઈ હિસાબ મળ્યો નથી.</p>';}else{html+='<div style="overflow:auto"><table><thead><tr><th>તારીખ</th><th>પ્રકાર</th>'+(mode==='full'?'<th>નામ</th>':'')+'<th>વિગત</th><th>રકમ</th></tr></thead><tbody>'; rows.sort((a,b)=>String(b.date||'').localeCompare(String(a.date||''))).forEach(e=>{html+='<tr><td>'+escapeHtml(e.date||'-')+'</td><td>'+escapeHtml(e.type==='income'?'આવક':'જાવક')+'</td>'+(mode==='full'?'<td>'+escapeHtml(e.donor||'-')+'</td>':'')+'<td>'+escapeHtml(e.detail||e.purpose||'-')+'</td><td>'+money(e.amount)+'</td></tr>';}); html+='</tbody></table></div>';}
+ html+='</div><button class="back" type="button" onclick="renderMemberPortalReports()">← પાછા</button>';
+ $('memberFinanceReports').innerHTML=html; window.scrollTo(0,0);
+}
 function renderMemberPortalReports(){
-  if(loggedRole!=="member") return;
-  const m=getMembers().find(x=>Number(x.id)===Number(loggedMemberId));
-  if(!m)return;
-  const year=($('memberReportMonth')?.value||'').trim()||String(new Date().getFullYear());
-  $('memberReportMonth').value=year;
-  const cats=["Jamat","Madrasa","Kabrastan","Dargah","JamatBhada"];
-  let ownTotal=0,ownHtml="",allIncome=0,allExpense=0,allHtml="";
-  const pr=window.__publicReport||{},yr=pr.years?.[year]||{};
-  cats.forEach(cat=>{
-    const own=getMemberFinanceEntries(m,cat).filter(e=>!year||String(e.date||'').startsWith(year));
-    const oi=own.filter(e=>e.type==='income').reduce((s,e)=>s+Number(e.amount||0),0);
-    const oe=own.filter(e=>e.type==='expense').reduce((s,e)=>s+Number(e.amount||0),0);
-    ownTotal+=oi;
-    ownHtml+='<div class="card menu" onclick="openMemberFinanceDetail(this.dataset.cat)" data-cat="'+cat+'" style="cursor:pointer"><h3>'+(cat==='Jamat'?'🕌 ':cat==='Madrasa'?'🏫 ':cat==='Kabrastan'?'🪦 ':cat==='Dargah'?'🕌 ':'🍽️ ')+(financeLabels[cat]||cat)+'</h3><div class="grid"><div class="stat"><div class="label">મારી આવક</div><div class="value income">'+money(oi)+'</div></div><div class="stat"><div class="label">મારી જાવક</div><div class="value expense">'+money(oe)+'</div></div></div><div class="small">Click કરીને મારી વિગત જુઓ</div></div>';
-    const x=yr[cat]||{income:0,expense:0,count:0};
-    const ai=Number(x.income||0),ae=Number(x.expense||0);allIncome+=ai;allExpense+=ae;
-    allHtml+='<div class="card"><h3>'+(cat==='Jamat'?'🕌 ':cat==='Madrasa'?'🏫 ':cat==='Kabrastan'?'🪦 ':cat==='Dargah'?'🕌 ':'🍽️ ')+(financeLabels[cat]||cat)+'</h3><div class="grid"><div class="stat"><div class="label">આવક</div><div class="value income">'+money(ai)+'</div></div><div class="stat"><div class="label">જાવક</div><div class="value expense">'+money(ae)+'</div></div><div class="stat"><div class="label">બચત</div><div class="value balance">'+money(ai-ae)+'</div></div></div><div class="small">કુલ Entry: '+Number(x.count||0)+'</div></div>';
-  });
-  const gi=allIncome,ge=allExpense;
-  $('memberFinanceReports').innerHTML='<div class="card total"><h3>👤 '+escapeHtml(m.name)+' — મારો હિસાબ</h3><div class="small">Mo. No. '+escapeHtml(m.mobile||'')+'</div><div class="value income" style="margin-top:10px">મારી કુલ આપેલી રકમ: '+money(ownTotal)+'</div></div><div class="card total menu" onclick="openMemberAllFinanceDetail()" style="cursor:pointer"><h3>📊 કુલ આવક / જાવક Report</h3><div class="small">પસંદ કરેલું વર્ષ: '+escapeHtml(year)+'</div><div class="grid"><div class="stat"><div class="label">કુલ આવક</div><div class="value income">'+money(gi)+'</div></div><div class="stat"><div class="label">કુલ જાવક</div><div class="value expense">'+money(ge)+'</div></div><div class="stat"><div class="label">કુલ બચત</div><div class="value balance">'+money(gi-ge)+'</div></div></div></div><div class="card"><h3>📋 કબ્રસ્તાન • દરગાહ • મદ્રેસા • જમાત • જમાત ભાડા — '+escapeHtml(year)+' Report</h3>'+allHtml+'</div><div class="card"><h3>👤 મારી કેટેગરી પ્રમાણે વિગતો</h3>'+ownHtml+'</div>';
-  const houses=getHouses();
-  let paid=0,due=0;
-  houses.forEach(h=>{const ps=h.payments||[];ps.forEach(normalizePayment);const x=ps.find(p=>p.status==='paid'&&paymentMonths(p).startsWith(year));if(x)paid+=Number(x.amount||0)/Math.max(1,paymentMonths(x).length);else due+=HOUSE_FEE;});
-  $('memberHouseReport').innerHTML='<div class="card menu" onclick="openMemberHouseDetail()" style="cursor:pointer"><h3>🏠 ઘર ફાળો — Report</h3><div class="grid"><div class="stat"><div class="label">કુલ ઘર</div><div class="value">'+houses.length+'</div></div><div class="stat"><div class="label">જમા</div><div class="value income">'+money(paid)+'</div></div><div class="stat"><div class="label">બાકી</div><div class="value expense">'+money(due)+'</div></div></div><div class="small">ઘરનો વ્યક્તિગત હિસાબ Admin-only છે.</div></div>';
+ if(loggedRole!=="member") return;
+ const m=getMembers().find(x=>Number(x.id)===Number(loggedMemberId)); if(!m)return;
+ const year=String(new Date().getFullYear()); $('memberReportMonth').value=year;
+ const cats=["Kabrastan","Dargah","Madrasa","Jamat","JamatBhada"];
+ $('memberMyAmountMenu').innerHTML=cats.map(c=>memberCategoryButton(c,'mine')).join('');
+ $('memberFullHistoryMenu').innerHTML=cats.map(c=>memberCategoryButton(c,'full')).join('');
+ $('memberFinanceReports').innerHTML='';
+ $('memberHouseReport').innerHTML='';
 }
 
 function logout(){
-  closeMemberListeners();
-  window.__memberIdToken=null;
   try{if(firebaseAuth)firebaseAuth.signOut();}catch(e){}
   loggedRole="";
   loggedMemberId=null;
@@ -2190,6 +2083,8 @@ function renderAllHouseBalance(){
 .mcat11-btn{padding:13px;border:1px solid #d5e2db;border-radius:10px;background:#fff;cursor:pointer;text-align:left}
 .mcat11-btn b{display:block}.mcat11-btn small{color:#68756f}
 @media(max-width:520px){.mcat11-grid{grid-template-columns:1fr}}
+
+.member-cat-btn{width:100%;display:block;padding:15px 16px;margin:9px 0;border:1px solid rgba(255,255,255,.12);border-radius:12px;background:rgba(255,255,255,.05);color:inherit;font-size:17px;text-align:left;cursor:pointer}.member-cat-btn:hover{transform:translateY(-1px)}
 </style>
 <script>
 (function(){
